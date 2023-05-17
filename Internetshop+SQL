@@ -1,0 +1,167 @@
+import java.sql.*;
+import java.util.Scanner;
+
+public class ElectronicStoreApp {
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/electronic_store";
+    private static final String DB_USERNAME = "username";
+    private static final String DB_PASSWORD = "password";
+
+    private Connection connection;
+
+    public ElectronicStoreApp() {
+        try {
+            connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void displayProducts() {
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM products");
+
+            System.out.println("Dostępne produkty:");
+            while (resultSet.next()) {
+                int productId = resultSet.getInt("id");
+                String productName = resultSet.getString("name");
+                double productPrice = resultSet.getDouble("price");
+                System.out.println(productId + ". " + productName + " - " + productPrice + " PLN");
+            }
+
+            statement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addToCart(int productId, int quantity) {
+        try {
+            PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO cart (product_id, quantity) VALUES (?, ?)"
+            );
+            statement.setInt(1, productId);
+            statement.setInt(2, quantity);
+            statement.executeUpdate();
+            statement.close();
+            System.out.println("Produkt został dodany do koszyka.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void viewCart() {
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(
+                    "SELECT c.quantity, p.name, p.price FROM cart c " +
+                            "JOIN products p ON c.product_id = p.id"
+            );
+
+            System.out.println("Zawartość koszyka:");
+            double totalPrice = 0;
+            while (resultSet.next()) {
+                int quantity = resultSet.getInt("quantity");
+                String productName = resultSet.getString("name");
+                double productPrice = resultSet.getDouble("price");
+                double subtotal = quantity * productPrice;
+                System.out.println(quantity + "x " + productName + " - " + subtotal + " PLN");
+                totalPrice += subtotal;
+            }
+            System.out.println("Suma: " + totalPrice + " PLN");
+
+            statement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void checkout() {
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery("SELECT p.price * c.quantity AS total " +
+                    "FROM cart c JOIN products p ON c.product_id = p.id");
+
+            double totalPrice = 0;
+            while (resultSet.next()) {
+                totalPrice += resultSet.getDouble("total");
+            }
+
+            System.out.println("Do zapłaty: " + totalPrice + " PLN");
+            System.out.print("Podaj swoje imię: ");
+            Scanner scanner = new Scanner(System.in);
+            String customerName = scanner.nextLine();
+
+            PreparedStatement insertOrderStatement = connection.prepareStatement(
+                    "INSERT INTO orders (customer_name, total_price) VALUES (?, ?)",
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            insertOrderStatement.setString(1, customerName);
+            insertOrderStatement.setDouble(2, totalPrice);
+            insertOrderStatement.executeUpdate();
+
+            ResultSet generatedKeys = insertOrderStatement.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                int orderId = generatedKeys.getInt(1);
+                System.out.println("Zamówienie zostało złożone. Numer zamówienia: " + orderId);
+            }
+
+            insertOrderStatement.close();
+            statement.executeUpdate("DELETE FROM cart");
+            statement.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void closeConnection() {
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        ElectronicStoreApp storeApp = new ElectronicStoreApp();
+
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("\n--- SKLEP INTERNETOWY Z ELEKTRONIKĄ ---");
+            System.out.println("1. Wyświetl produkty");
+            System.out.println("2. Dodaj produkt do koszyka");
+            System.out.println("3. Wyświetl koszyk");
+            System.out.println("4. Zamów");
+            System.out.println("0. Wyjście");
+            System.out.print("Wybierz opcję: ");
+            int option = scanner.nextInt();
+            scanner.nextLine(); // Clear the input buffer
+
+            switch (option) {
+                case 1:
+                    storeApp.displayProducts();
+                    break;
+                case 2:
+                    System.out.print("Podaj numer produktu: ");
+                    int productId = scanner.nextInt();
+                    System.out.print("Podaj ilość: ");
+                    int quantity = scanner.nextInt();
+                    storeApp.addToCart(productId, quantity);
+                    break;
+                case 3:
+                    storeApp.viewCart();
+                    break;
+                case 4:
+                    storeApp.checkout();
+                    break;
+                case 0:
+                    storeApp.closeConnection();
+                    System.out.println("Dziękujemy za zakupy w naszym sklepie. Do widzenia!");
+                    return;
+                default:
+                    System.out.println("Nieprawidłowa opcja. Wybierz ponownie.");
+            }
+        }
+    }
+}
