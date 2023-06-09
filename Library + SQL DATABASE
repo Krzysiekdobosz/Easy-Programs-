@@ -106,6 +106,25 @@ public class LibraryManagementApp {
         }
     }
 
+public void deleteBook(int bookId) {
+    try {
+        PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM books WHERE id = ?"
+        );
+        statement.setInt(1, bookId);
+        int rowsAffected = statement.executeUpdate();
+        statement.close();
+        
+        if (rowsAffected > 0) {
+            System.out.println("Książka została usunięta z biblioteki.");
+        } else {
+            System.out.println("Nie znaleziono książki o podanym identyfikatorze.");
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+}
+
     public void closeConnection() {
         try {
             connection.close();
@@ -126,6 +145,8 @@ public class LibraryManagementApp {
             System.out.println("3. Wyszukaj książki");
             System.out.println("4. Oznacz książkę jako dostępną");
             System.out.println("5. Oznacz książkę jako wypożyczoną");
+            System.out.println("6. Usuń książkę");
+
             System.out.println("0. Wyjście");
             System.out.print("Wybierz opcję: ");
             int option = scanner.nextInt();
@@ -157,6 +178,12 @@ public class LibraryManagementApp {
                     int borrowedBookId = scanner.nextInt();
                     libraryApp.markBookAsBorrowed(borrowedBookId);
                     break;
+                case 6:
+                    System.out.print("Podaj numer książki do usunięcia: ");
+                    int deleteBookId = scanner.nextInt();
+                    libraryApp.deleteBook(deleteBookId);
+                    break;
+
                 case 0:
                     libraryApp.closeConnection();
                     System.out.println("Dziękujemy za korzystanie z aplikacji. Do widzenia!");
